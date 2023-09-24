@@ -229,19 +229,35 @@ function(add_avr_executable EXECUTABLE_NAME)
   # clean
   get_directory_property(clean_files ADDITIONAL_MAKE_CLEAN_FILES)
   set_directory_properties(
-     PROPERTIES
-       ADDITIONAL_MAKE_CLEAN_FILES "${map_file}"
+    PROPERTIES
+      ADDITIONAL_MAKE_CLEAN_FILES "${map_file}"
   )
 
-  # upload - with avrdude
-  add_custom_target(
-    upload_${EXECUTABLE_NAME}
-    ${AVR_UPLOADTOOL} ${AVR_UPLOADTOOL_BASE_OPTIONS} ${AVR_UPLOADTOOL_OPTIONS}
-       -U flash:w:${hex_file}
-       -P ${AVR_UPLOADTOOL_PORT}
-    DEPENDS ${hex_file}
-    COMMENT "Uploading ${hex_file} to ${AVR_MCU} using ${AVR_PROGRAMMER}"
-  )
+  if(DEFINED DEPLOY_ON_SERVER)
+    # configure the deployment script
+    configure_file(
+      ${DEPLOY_SCRIPT}
+      deploy_${EXECUTABLE_NAME}_on_server.sh
+    )
+
+    # upload in the test server
+    add_custom_target(
+      upload_${EXECUTABLE_NAME}
+      COMMAND bash deploy_${EXECUTABLE_NAME}_on_server.sh
+      DEPENDS ${hex_file}
+      COMMENT "Deploy ${hex_file} in test node"
+    )
+  else(DEFINED DEPLOY_ON_SERVER)
+    # upload - with avrdude
+    add_custom_target(
+      upload_${EXECUTABLE_NAME}
+      ${AVR_UPLOADTOOL} ${AVR_UPLOADTOOL_BASE_OPTIONS} ${AVR_UPLOADTOOL_OPTIONS}
+         -U flash:w:${hex_file}
+         -P ${AVR_UPLOADTOOL_PORT}
+      DEPENDS ${hex_file}
+      COMMENT "Uploading ${hex_file} to ${AVR_MCU} using ${AVR_PROGRAMMER}"
+    )
+  endif(DEFINED DEPLOY_ON_SERVER)
 
   # upload eeprom only - with avrdude
   # see also bug http://savannah.nongnu.org/bugs/?40142
@@ -259,6 +275,7 @@ function(add_avr_executable EXECUTABLE_NAME)
     disassemble_${EXECUTABLE_NAME}
     ${AVR_OBJDUMP} -h -S ${elf_file} > ${EXECUTABLE_NAME}.lst
     DEPENDS ${elf_file}
+    COMMENT "Disassemble the elf to ${EXECUTABLE_NAME}.lst using ${AVR_OBJDUMP}"
   )
 endfunction(add_avr_executable)
 
@@ -321,8 +338,13 @@ function(avr_target_link_libraries EXECUTABLE_TARGET)
 
   foreach(TGT ${ARGN})
     if(TARGET ${TGT})
-      get_target_property(ARG_NAME ${TGT} OUTPUT_NAME)
-      list(APPEND NON_TARGET_LIST ${ARG_NAME})
+      get_target_property(TGT_TYPE ${TGT} TYPE)
+      if (${TGT_TYPE} STREQUAL "INTERFACE_LIBRARY")
+        list(APPEND NON_TARGET_LIST ${TGT})
+      else()
+        get_target_property(ARG_NAME ${TGT} OUTPUT_NAME)
+        list(APPEND NON_TARGET_LIST ${ARG_NAME})
+      endif()
     else(TARGET ${TGT})
       list(APPEND NON_TARGET_LIST ${TGT})
     endif(TARGET ${TGT})
@@ -336,7 +358,6 @@ endfunction(avr_target_link_libraries EXECUTABLE_TARGET)
 #
 # Calls target_include_directories with AVR target names
 ##########################################################################
-
 function(avr_target_include_directories EXECUTABLE_TARGET)
   if(NOT ARGN)
     message(FATAL_ERROR "No include directories to add to ${EXECUTABLE_TARGET}.")
@@ -353,7 +374,6 @@ endfunction()
 #
 # Calls target_compile_definitions with AVR target names
 ##########################################################################
-
 function(avr_target_compile_definitions EXECUTABLE_TARGET)
   if(NOT ARGN)
     message(FATAL_ERROR "No compile definitions to add to ${EXECUTABLE_TARGET}.")
