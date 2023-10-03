@@ -33,12 +33,6 @@ include(generic-gcc-avr.cmake)
 include(avr_functions.cmake)
 
 ################################################################################
-# Find the AVR LibC library
-################################################################################
-find_library(C_LIB c)
-message(STATUS "avr-libc: ${C_LIB}")
-
-################################################################################
 # status messages
 ################################################################################
 message(STATUS "Current uploadtool is: ${AVR_UPLOADTOOL}")
@@ -90,3 +84,8 @@ else(DEFINED MCU_SPEED)
   message(FATAL_ERROR "Please define MCU_SPEED in your environment.")
 endif(DEFINED MCU_SPEED)
 
+################################################################################
+# Find the AVR LibC library
+################################################################################
+find_library(C_LIB c)
+message(STATUS "avr-libc: ${C_LIB}")
